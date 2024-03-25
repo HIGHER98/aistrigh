@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"image"
 	"image/color"
-	"math"
 
 	"gocv.io/x/gocv"
 )
@@ -111,34 +110,4 @@ func getAverageContourSize(contours gocv.PointsVector) (avgX int, avgY int) {
 	}
 	fmt.Println("x avg", xTally/bars, "y avg", yTally/bars)
 	return xTally / bars, yTally / bars
-}
-
-func edgeDetect(img gocv.Mat, originalImg gocv.Mat) {
-
-	// Edge detection
-	matLines := gocv.NewMat()
-	defer matLines.Close()
-	gocv.Canny(img, &img, 50, 200)
-	gocv.HoughLinesP(img, &matLines, 1, math.Pi/180, 80)
-
-	fmt.Println(matLines.Cols())
-	fmt.Println(matLines.Rows())
-	pv := gocv.NewPointVector()
-	var rects []image.Rectangle
-
-	for i := 0; i < matLines.Rows(); i++ {
-		pt1 := image.Pt(int(matLines.GetVeciAt(i, 0)[0]), int(matLines.GetVeciAt(i, 0)[1]))
-		pt2 := image.Pt(int(matLines.GetVeciAt(i, 0)[2]), int(matLines.GetVeciAt(i, 0)[3]))
-		pv.Append(pt1)
-		pv.Append(pt2)
-
-		rects = append(rects, gocv.BoundingRect(pv))
-		fmt.Println("point 1", pt1, "point 2", pt2)
-		gocv.Line(&originalImg, pt1, pt2, color.RGBA{0, 255, 50, 0}, 1)
-	}
-
-	rects = gocv.GroupRectangles(rects, 1, 0.2)
-	for _, r := range rects {
-		gocv.Rectangle(&originalImg, r, color.RGBA{255, 0, 0, 0}, 1)
-	}
 }
