@@ -3,7 +3,9 @@ package amharc
 import (
 	"fmt"
 	"image"
+	"image/color"
 	"math"
+	"math/rand"
 	"sort"
 
 	"gocv.io/x/gocv"
@@ -95,19 +97,100 @@ func createStaffLines(rects []image.Rectangle) staffLines {
 		// if this ect and the next don't overlap, represenet that space as a staffLine (FACE)
 		if rects[i].Intersect(rects[j]).Empty() {
 			fmt.Println("appending...", image.Rectangle{Min: rects[i].Min, Max: image.Point{rects[j].Max.X, rects[j].Min.Y}})
-			sls = append(sls, staffLine{image.Rectangle{Min: rects[i].Min,
-				Max: image.Point{rects[j].Max.X, rects[j].Min.Y}}, notePositionSpaceMap[i]})
-
+			sls = append(sls, staffLine{image.Rectangle{Min: image.Point{rects[i].Min.X, rects[i].Max.Y},
+				Max: image.Point{rects[j].Max.X, rects[j].Min.Y}},
+				notePositionSpaceMap[i]})
 		} else {
 			fmt.Println("Not appending. Intersection found between", rects[i], rects[j])
 		}
-
 	}
+
+	// create a ghost staff above and below the real staff
+	sls = createGhostLines(sls)
 
 	for _, sl := range sls {
 		sl.print()
 	}
 	return sls
+}
+
+var notePosition = map[int]string{
+	0: "a",
+	1: "b",
+	2: "c",
+	3: "d",
+	4: "e",
+	5: "f",
+	6: "g",
+}
+
+// create lines above and below
+func createGhostLines(sls staffLines) staffLines {
+	// sort ascending, sls[0] = 'f'
+	sort.Slice(sls, func(i, j int) bool {
+		return sls[i].rect.Min.Y < sls[j].rect.Min.Y
+	})
+	if sls.isEmpty() {
+		// TODO: return nil, err
+		return nil
+	}
+
+	bottomLine := sls[len(sls)-1]
+	// go  down
+	for i := 8; i >= 0; i-- {
+		r := image.Rectangle{
+			Min: image.Point{X: bottomLine.rect.Min.X, Y: (bottomLine.rect.Max.Y + (bottomLine.rect.Max.Y - sls[i].rect.Max.Y))},
+			Max: image.Point{X: bottomLine.rect.Max.X, Y: (bottomLine.rect.Max.Y + (bottomLine.rect.Max.Y - sls[i].rect.Min.Y))}}
+		//fmt.Println("DOWN: Adding ghost note", notePosition[(i+2)%7], "notePosition[", (i+2)%7, "]", r, bottomLine, sls[i])
+		sls = append(sls, staffLine{r, notePosition[(i+2)%7]})
+	}
+
+	// go 10 notes up
+	for i := 1; i < 10; i++ {
+		r := image.Rectangle{
+			Min: image.Point{X: sls[0].rect.Min.X, Y: (sls[0].rect.Min.Y - (sls[i].rect.Min.Y - sls[0].rect.Min.Y))},
+			Max: image.Point{X: sls[0].rect.Max.X, Y: (sls[0].rect.Max.Y - (sls[i].rect.Min.Y - sls[0].rect.Min.Y))}}
+		//fmt.Println("UP::: Adding ghost note", notePosition[(i+5)%7], "notePosition[", (i+5)%7, "]", r)
+		sls = append(sls, staffLine{r, notePosition[(i+5)%7]})
+	}
+
+	return sls
+}
+
+func (sls staffLines) isEmpty() bool {
+	return len(sls) == 0
+}
+
+func (sls staffLines) draw(img gocv.Mat) {
+	for _, sl := range sls {
+		colorR := uint8(rand.Intn(255))
+		colorG := uint8(rand.Intn(255))
+		colorB := uint8(rand.Intn(255))
+		//gocv.Line(&bar, line.pt1, line.pt2, color.RGBA{colorR, colorG, colorB, 0}, 1)
+
+		text := fmt.Sprintf("%s", sl.pitch)
+		colour := color.RGBA{colorR, colorG, colorB, 0}
+		gocv.PutText(&img, text, sl.rect.Min, gocv.FontHersheyPlain, 1, colour, 1)
+		gocv.Rectangle(&img, sl.rect, colour, 1)
+	}
+}
+
+// FIXME
+func stripOutliar(rects []image.Rectangle) []image.Rectangle {
+	// finds the biggest outliar of the rects based on their y-values
+	maxDistance := 0
+	badRect := -1
+	for i := 0; i < len(rects)-1; i++ {
+		diff := rects[i].Min.Y - rects[i+1].Min.Y
+		if diff > maxDistance {
+			maxDistance = diff
+			badRect = i // FIXME or it could be j!!
+		}
+	}
+	fmt.Println("Stripping outliar...", rects[badRect], "len", len(rects))
+	rects = append(rects[:badRect], rects[badRect+1:]...)
+	fmt.Println("After strip", len(rects))
+	return rects
 }
 
 // a region in the bar associated with a particulat pitch
@@ -117,7 +200,7 @@ type staffLine struct {
 }
 
 func (sl staffLine) print() {
-	fmt.Println("Min", sl.rect.Min.String(), "Max", sl.rect.Max.String(), "pitch", sl.pitch)
+	fmt.Println("--- Min", sl.rect.Min.String(), "Max", sl.rect.Max.String(), "pitch", sl.pitch)
 }
 
 type staffLines []staffLine

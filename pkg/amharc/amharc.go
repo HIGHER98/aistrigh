@@ -35,6 +35,7 @@ func ReadSheet(filepath string) {
 		sls := findStaff(img.Region(bar))
 		notePositions := findNotes(img.Region(bar))
 		//fmt.Println("found these notes in bar", notePositionMap[i], notePositions)
+		//	sls.draw(img.Region(bar))
 
 		for _, notePosition := range notePositions {
 
