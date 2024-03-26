@@ -31,49 +31,31 @@ func ReadSheet(filepath string) {
 	window.ResizeWindow(1200, 1000)
 	window.IMShow(img)
 	window.WaitKey(3000)
-	barImg := gocv.NewMat()
-	defer barImg.Close()
-	for i, bar := range bars {
-		staffRects := findStaff(img.Region(bar))
+	for _, bar := range bars {
+		sls := findStaff(img.Region(bar))
 		notePositions := findNotes(img.Region(bar))
-		fmt.Println("found these notes in bar", i, notePositions)
+		//fmt.Println("found these notes in bar", notePositionMap[i], notePositions)
 
 		for _, notePosition := range notePositions {
 
-			for i, rect := range staffRects {
-				//fmt.Println("Checking if note is in rect", notePosition.center, rect)
-				if notePosition.center.In(rect) {
-					note := "x"
-					switch i {
-					case 0:
-						note = "f"
-					case 1:
-						note = "d"
-					case 2:
-						note = "b"
-					case 3:
-						note = "g"
-					case 4:
-						note = "e"
-					default:
-						note = "x"
+			pitch := sls.contains(notePosition)
 
-					}
-					fmt.Printf(" %s ", note)
-					drawCircle(img.Region(bar), notePosition)
-				}
-
+			fmt.Printf(" %s ", pitch)
+			if pitch != "x" {
+				drawNote(img.Region(bar), notePosition, pitch)
 			}
 		}
+		fmt.Println()
 
 		window.IMShow(img.Region(bar))
 		window.WaitKey(3000)
 	}
 }
 
-func drawCircle(img gocv.Mat, notePosition circle) {
-
-	gocv.Circle(&img, notePosition.center, notePosition.radius, color.RGBA{255, 0, 0, 0}, 1)
+func drawNote(img gocv.Mat, notePosition circle, pitch string) {
+	gocv.Circle(&img, notePosition.center, notePosition.radius, color.RGBA{255, 100, 0, 0}, 1)
+	text := fmt.Sprintf("%s", pitch)
+	gocv.PutText(&img, text, notePosition.center, gocv.FontHersheyPlain, 1, color.RGBA{200, 10, 100, 0}, 1)
 }
 
 // TODO: Backproject histogram

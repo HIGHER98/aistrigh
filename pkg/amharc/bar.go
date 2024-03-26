@@ -33,9 +33,9 @@ func extractBars(img gocv.Mat, originalImg gocv.Mat) []image.Rectangle {
 	// find bars and draw them
 	contours := gocv.FindContours(img, gocv.RetrievalTree, gocv.ChainApproxNone)
 
-	fmt.Println(contours.Size())
 	x, y := getAverageContourSize(contours)
-	fmt.Println("Average contour size: ", x, y)
+	fmt.Println("Number of contours", contours.Size(), "Average contour size (bar): ", x, y)
+
 	pts := gocv.NewMat()
 	defer pts.Close()
 
@@ -54,8 +54,6 @@ func extractBars(img gocv.Mat, originalImg gocv.Mat) []image.Rectangle {
 		//gocv.Rectangle(&originalImg, rect, color.RGBA{0, 234, 106, 0}, 2)
 		//text := fmt.Sprintf("Size: %d", area)
 		//gocv.PutText(&originalImg, text, rect.Min, gocv.FontHersheyPlain, 1, color.RGBA{200, 200, 100, 0}, 2)
-
-		fmt.Println("Contour with size", area, "at position", rect.Min, "max", rect.Max)
 
 		rects = append(rects, rect)
 	}
@@ -77,6 +75,5 @@ func getAverageContourSize(contours gocv.PointsVector) (avgX int, avgY int) {
 		xTally = xTally + (rect.Max.X - rect.Min.X)
 		yTally = yTally + (rect.Max.Y - rect.Min.Y)
 	}
-	fmt.Println("x avg", xTally/bars, "y avg", yTally/bars)
 	return xTally / bars, yTally / bars
 }
