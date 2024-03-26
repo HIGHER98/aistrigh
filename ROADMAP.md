@@ -1,0 +1,14 @@
+Needs doing...
+- [ ] Account for notes off the "main" staff. 
+- [ ] Transcribe to a legible output
+  - Maybe tabs
+  - Maybe some machine-legible way 
+- [ ] Write unit tests
+  - De-fluff code
+  - Flags for running the code
+    - `image [input image]`
+    - `output [to save output files/notes??]`
+    - `format [notes/guitar tab/something else?]`
+- [ ] Eventually, recognise note durations [characters] (maybe using an SVM)
+- [ ] Better setup for debugging visually (trackbars)
+- [ ] Maybe an API to query for the data if I wanted to put this online somewhere
