@@ -7,4 +7,4 @@ A work in progress...
 
 This should take in an image of sheet music and output a transposed version of what is seen. It currently only works at reading the notes found, but does not present them in a meaningful way.
 
-![Screenshot from 2024-03-26 16-05-21](https://github.com/HIGHER98/aistrigh/assets/24936833/b73ccf46-9bf9-4d31-9bdf-223a98583786)
+![Screenshot from 2024-03-26 22-18-36](https://github.com/HIGHER98/aistrigh/assets/24936833/f56fb254-951f-4c4c-988a-1cc2fa16bee5)
