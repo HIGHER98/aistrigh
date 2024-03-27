@@ -17,10 +17,10 @@ func ReadSheet(filepath string) {
 	gocv.Resize(img, &img, image.Point{ImageCols, ImageRows}, 0, 0, gocv.InterpolationArea)
 	//gocv.Blur(img, &img, image.Point{3, 3})
 	//gocv.GaussianBlur(img, &img, image.Point{3, 3}, 1, 1, gocv.BorderDefault)
+	gocv.CvtColor(img, &img, gocv.ColorBGRAToGray)
 	originalImg := img.Clone() // contains a copy of the original image
 	defer originalImg.Close()
 
-	gocv.CvtColor(img, &img, gocv.ColorBGRAToGray)
 	bars := extractBars(img, originalImg)
 	originalImg.CopyTo(&img)
 
@@ -34,8 +34,9 @@ func ReadSheet(filepath string) {
 	for _, bar := range bars {
 		sls := findStaff(img.Region(bar))
 		notePositions := findNotes(img.Region(bar))
-		//fmt.Println("found these notes in bar", notePositionMap[i], notePositions)
 		//	sls.draw(img.Region(bar))
+
+		findClef(img.Region(bar))
 
 		for _, notePosition := range notePositions {
 

@@ -14,16 +14,13 @@ import (
 func findStaff(bar gocv.Mat) staffLines {
 
 	img := bar.Clone()
-	gocv.CvtColor(img, &img, gocv.ColorBGRAToGray)
+	//gocv.CvtColor(img, &img, gocv.ColorBGRAToGray)
 
 	// Edge detection
 	matLines := gocv.NewMat()
 	defer matLines.Close()
 	gocv.Canny(img, &img, 50, 200)
-	// func HoughLinesPWithParams(src Mat, lines *Mat, rho float32, theta float32, threshold int, minLineLength float32, maxLineGap float32)
-	// func HoughLinesP(src Mat, lines *Mat, rho float32, theta float32, threshold int)
 	gocv.HoughLinesPWithParams(img, &matLines, 1, math.Pi/180, 80, 200, 10)
-	//  HoughLinesP( dst, lines, 1, CV_PI/180, 80, 30, 10 )
 
 	lines := sortMatLines(matLines)
 	fmt.Println("Number of lines found", len(lines))
@@ -37,33 +34,17 @@ func findStaff(bar gocv.Mat) staffLines {
 		if (lines[i+1].pt1.Y - lines[i].pt1.Y) <= 2 {
 			// group found
 			rect := createRectangle(lines[i], lines[i+1])
-			/*
-				colorR := uint8(rand.Intn(255))
-				colorG := uint8(rand.Intn(255))
-				colorB := uint8(rand.Intn(255))
-				//gocv.Line(&bar, line.pt1, line.pt2, color.RGBA{colorR, colorG, colorB, 0}, 1)
-				gocv.Rectangle(&bar, rect, color.RGBA{colorR, colorG, colorB, 0}, 1)
-				/*
-					text := fmt.Sprintf("Rectangle: (%s, %s) (%s, %s)", rect.Min.X, rect.Min.Y, rect.Max.X, rect.Max.Y)
-					gocv.PutText(&bar, text, rect.Min, gocv.FontHersheyPlain, 1, color.RGBA{colorR, colorG, colorB, 0}, 2)
-			*/
 			rects = append(rects, rect)
 		}
 
 	}
 	fmt.Println("creating staffline...")
-
 	sls := createStaffLines(rects)
-	/*
-		gocv.Rectangle(&bar, sls[0].rect, color.RGBA{255, 0, 0, 0}, 1)
-		gocv.Rectangle(&bar, sls[1].rect, color.RGBA{255, 0, 255, 0}, 1)
-		gocv.Rectangle(&bar, sls[2].rect, color.RGBA{0, 255, 0, 0}, 1)
-		gocv.Rectangle(&bar, sls[3].rect, color.RGBA{0, 255, 0, 0}, 1)
-		gocv.Rectangle(&bar, sls[4].rect, color.RGBA{255, 255, 0, 0}, 1)
-	*/
 	return sls
 }
 
+// FIXME: I need a better interpretation of converting staff lines to pitches.
+// I also need to account for different octaves of these pitches, i.e. a5 != a4
 var notePositionLineMap = map[int]string{
 	0: "f",
 	1: "d",
@@ -77,6 +58,16 @@ var notePositionSpaceMap = map[int]string{
 	1: "c",
 	2: "a",
 	3: "f",
+}
+
+var notePosition = map[int]string{
+	0: "a",
+	1: "b",
+	2: "c",
+	3: "d",
+	4: "e",
+	5: "f",
+	6: "g",
 }
 
 func createStaffLines(rects []image.Rectangle) staffLines {
@@ -114,16 +105,6 @@ func createStaffLines(rects []image.Rectangle) staffLines {
 	return sls
 }
 
-var notePosition = map[int]string{
-	0: "a",
-	1: "b",
-	2: "c",
-	3: "d",
-	4: "e",
-	5: "f",
-	6: "g",
-}
-
 // create lines above and below
 func createGhostLines(sls staffLines) staffLines {
 	// sort ascending, sls[0] = 'f'
@@ -135,8 +116,8 @@ func createGhostLines(sls staffLines) staffLines {
 		return nil
 	}
 
-	bottomLine := sls[len(sls)-1]
-	// go  down
+	bottomLine := sls[len(sls)-1] // has the highest Y-value. i.e. furthest down on the image
+	// go 8 notes down
 	for i := 8; i >= 0; i-- {
 		r := image.Rectangle{
 			Min: image.Point{X: bottomLine.rect.Min.X, Y: (bottomLine.rect.Max.Y + (bottomLine.rect.Max.Y - sls[i].rect.Max.Y))},
@@ -163,15 +144,7 @@ func (sls staffLines) isEmpty() bool {
 
 func (sls staffLines) draw(img gocv.Mat) {
 	for _, sl := range sls {
-		colorR := uint8(rand.Intn(255))
-		colorG := uint8(rand.Intn(255))
-		colorB := uint8(rand.Intn(255))
-		//gocv.Line(&bar, line.pt1, line.pt2, color.RGBA{colorR, colorG, colorB, 0}, 1)
-
-		text := fmt.Sprintf("%s", sl.pitch)
-		colour := color.RGBA{colorR, colorG, colorB, 0}
-		gocv.PutText(&img, text, sl.rect.Min, gocv.FontHersheyPlain, 1, colour, 1)
-		gocv.Rectangle(&img, sl.rect, colour, 1)
+		sl.draw(img)
 	}
 }
 
@@ -203,14 +176,23 @@ func (sl staffLine) print() {
 	fmt.Println("--- Min", sl.rect.Min.String(), "Max", sl.rect.Max.String(), "pitch", sl.pitch)
 }
 
+func (sl staffLine) draw(img gocv.Mat) {
+	colorR := uint8(rand.Intn(255))
+	colorG := uint8(rand.Intn(255))
+	colorB := uint8(rand.Intn(255))
+	//gocv.Line(&bar, line.pt1, line.pt2, color.RGBA{colorR, colorG, colorB, 0}, 1)
+
+	text := fmt.Sprintf("%s", sl.pitch)
+	colour := color.RGBA{colorR, colorG, colorB, 0}
+	gocv.PutText(&img, text, sl.rect.Min, gocv.FontHersheyPlain, 1, colour, 1)
+	gocv.Rectangle(&img, sl.rect, colour, 1)
+}
+
 type staffLines []staffLine
 
 func (sls staffLines) contains(notePosition circle) string {
 	for _, sl := range sls {
 		if notePosition.center.In(sl.rect) {
-
-			fmt.Printf("center: %s ", notePosition.center.String())
-			sl.print()
 			return sl.pitch
 		}
 	}

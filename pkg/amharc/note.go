@@ -19,7 +19,7 @@ func findNotes(bar gocv.Mat) []circle {
 
 	img := bar.Clone()
 	defer img.Close()
-	gocv.CvtColor(img, &img, gocv.ColorBGRAToGray)
+	//gocv.CvtColor(img, &img, gocv.ColorBGRAToGray)
 
 	// mask = cv2.inRange(image_color, lower_bound, upper_bound)
 	//mask := gocv.NewMat()
