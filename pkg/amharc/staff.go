@@ -14,7 +14,6 @@ import (
 func findStaff(bar gocv.Mat) staffLines {
 
 	img := bar.Clone()
-	//gocv.CvtColor(img, &img, gocv.ColorBGRAToGray)
 
 	// Edge detection
 	matLines := gocv.NewMat()
@@ -43,31 +42,49 @@ func findStaff(bar gocv.Mat) staffLines {
 	return sls
 }
 
-// FIXME: I need a better interpretation of converting staff lines to pitches.
-// I also need to account for different octaves of these pitches, i.e. a5 != a4
-var notePositionLineMap = map[int]string{
-	0: "f",
-	1: "d",
-	2: "b",
-	3: "g",
-	4: "e",
-}
-
-var notePositionSpaceMap = map[int]string{
-	0: "e",
-	1: "c",
-	2: "a",
-	3: "f",
-}
-
-var notePosition = map[int]string{
-	0: "a",
-	1: "b",
-	2: "c",
-	3: "d",
-	4: "e",
-	5: "f",
-	6: "g",
+var notes = map[int]string{
+	0:  "a3",
+	1:  "b3",
+	2:  "c3",
+	3:  "d3",
+	4:  "e3",
+	5:  "f3",
+	6:  "g3",
+	7:  "a4",
+	8:  "b4",
+	9:  "c4",
+	10: "d4",
+	11: "e4",
+	12: "f4",
+	13: "g4",
+	14: "a5",
+	15: "b5",
+	16: "c5",
+	17: "d5",
+	18: "e5",
+	19: "f5",
+	20: "g5",
+	21: "a6",
+	22: "b6",
+	23: "c6",
+	24: "d6",
+	25: "e6",
+	26: "f6",
+	27: "g6",
+	28: "a7",
+	29: "b7",
+	30: "c7",
+	31: "d7",
+	32: "e7",
+	33: "f7",
+	34: "g7",
+	35: "a8",
+	36: "b8",
+	37: "c8",
+	38: "d8",
+	39: "e8",
+	40: "f8",
+	41: "g8",
 }
 
 func createStaffLines(rects []image.Rectangle) staffLines {
@@ -78,19 +95,22 @@ func createStaffLines(rects []image.Rectangle) staffLines {
 
 	// create staff representations for lines
 	for i, rect := range rects {
-		fmt.Println("i", i, "rect.Min.Y", rect.Min.Y, "rect.Max.Y", rect.Max.Y, "notePositionLineMap[i]", notePositionLineMap[i])
-		sls = append(sls, staffLine{rect, notePositionLineMap[i]})
+		fmt.Println("i", i, "rect.Min.Y", rect.Min.Y, "rect.Max.Y", rect.Max.Y, "notes[i]", notes[i])
+		// 18 is e5
+		sls = append(sls, staffLine{rect, notes[19-(i*2)]})
+		fmt.Println("Adding pitch", notes[19-(i*2)])
 	}
 
 	// create staff representations for clear line rects to represent the notes marked by the space between lines
 	for i := 0; i < len(rects)-1; i++ {
 		j := i + 1
-		// if this ect and the next don't overlap, represenet that space as a staffLine (FACE)
+		// if this rect and the next don't overlap, represenet that space as a staffLine (Notes: FACE)
 		if rects[i].Intersect(rects[j]).Empty() {
 			fmt.Println("appending...", image.Rectangle{Min: rects[i].Min, Max: image.Point{rects[j].Max.X, rects[j].Min.Y}})
 			sls = append(sls, staffLine{image.Rectangle{Min: image.Point{rects[i].Min.X, rects[i].Max.Y},
 				Max: image.Point{rects[j].Max.X, rects[j].Min.Y}},
-				notePositionSpaceMap[i]})
+				notes[18-(i*2)]})
+			fmt.Println("1Adding pitch", notes[18-(i*2)])
 		} else {
 			fmt.Println("Not appending. Intersection found between", rects[i], rects[j])
 		}
@@ -118,21 +138,23 @@ func createGhostLines(sls staffLines) staffLines {
 
 	bottomLine := sls[len(sls)-1] // has the highest Y-value. i.e. furthest down on the image
 	// go 8 notes down
-	for i := 8; i >= 0; i-- {
+	notesDown := 8
+	for i := 0; i < notesDown; i++ {
 		r := image.Rectangle{
 			Min: image.Point{X: bottomLine.rect.Min.X, Y: (bottomLine.rect.Max.Y + (bottomLine.rect.Max.Y - sls[i].rect.Max.Y))},
 			Max: image.Point{X: bottomLine.rect.Max.X, Y: (bottomLine.rect.Max.Y + (bottomLine.rect.Max.Y - sls[i].rect.Min.Y))}}
-		//fmt.Println("DOWN: Adding ghost note", notePosition[(i+2)%7], "notePosition[", (i+2)%7, "]", r, bottomLine, sls[i])
-		sls = append(sls, staffLine{r, notePosition[(i+2)%7]})
+		sls = append(sls, staffLine{r, notes[10+i-notesDown]})
+		fmt.Println("Down: ", notes[10+i-notesDown])
 	}
 
 	// go 10 notes up
-	for i := 1; i < 10; i++ {
+	notesUp := 9
+	for i := 1; i < notesUp; i++ {
 		r := image.Rectangle{
 			Min: image.Point{X: sls[0].rect.Min.X, Y: (sls[0].rect.Min.Y - (sls[i].rect.Min.Y - sls[0].rect.Min.Y))},
 			Max: image.Point{X: sls[0].rect.Max.X, Y: (sls[0].rect.Max.Y - (sls[i].rect.Min.Y - sls[0].rect.Min.Y))}}
-		//fmt.Println("UP::: Adding ghost note", notePosition[(i+5)%7], "notePosition[", (i+5)%7, "]", r)
-		sls = append(sls, staffLine{r, notePosition[(i+5)%7]})
+		sls = append(sls, staffLine{r, notes[26+i]})
+		fmt.Println("Up: ", notes[26+i])
 	}
 
 	return sls

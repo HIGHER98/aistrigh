@@ -15,7 +15,10 @@ const YPadding = 30
 
 // extract all the bars into different regions represented by image.Rectangle's
 // Resize the image, apply blur, threshold and bring back to original size, find contours, bound these, pad those, return 'em
-func extractBars(img gocv.Mat, originalImg gocv.Mat) []image.Rectangle {
+func extractBars(sheet gocv.Mat) []image.Rectangle {
+
+	img := sheet.Clone()
+	defer img.Clone()
 
 	var rects []image.Rectangle
 	gocv.Resize(img, &img, image.Point{100, 200}, 0, 0, gocv.InterpolationArea)
@@ -44,17 +47,12 @@ func extractBars(img gocv.Mat, originalImg gocv.Mat) []image.Rectangle {
 		if area < MinArea || area > MaxArea {
 			continue
 		}
-		//gocv.DrawContours(&originalImg, contours, idx, color.RGBA{255, 255, 20, 0}, 2)
 		rect := gocv.BoundingRect(contours.At(idx))
 		// Add padding to this rect
 		rect.Min.X = rect.Min.X - XPadding
 		rect.Min.Y = rect.Min.Y - YPadding
 		rect.Max.X = rect.Max.X + XPadding
 		rect.Max.Y = rect.Max.Y + YPadding
-		//gocv.Rectangle(&originalImg, rect, color.RGBA{0, 234, 106, 0}, 2)
-		//text := fmt.Sprintf("Size: %d", area)
-		//gocv.PutText(&originalImg, text, rect.Min, gocv.FontHersheyPlain, 1, color.RGBA{200, 200, 100, 0}, 2)
-
 		rects = append(rects, rect)
 	}
 

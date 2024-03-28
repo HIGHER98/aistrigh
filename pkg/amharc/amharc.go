@@ -18,11 +18,8 @@ func ReadSheet(filepath string) {
 	//gocv.Blur(img, &img, image.Point{3, 3})
 	//gocv.GaussianBlur(img, &img, image.Point{3, 3}, 1, 1, gocv.BorderDefault)
 	gocv.CvtColor(img, &img, gocv.ColorBGRAToGray)
-	originalImg := img.Clone() // contains a copy of the original image
-	defer originalImg.Close()
 
-	bars := extractBars(img, originalImg)
-	originalImg.CopyTo(&img)
+	bars := extractBars(img)
 
 	// show our hard work....
 	window := gocv.NewWindow(filepath)
@@ -31,12 +28,16 @@ func ReadSheet(filepath string) {
 	window.ResizeWindow(1200, 1000)
 	window.IMShow(img)
 	window.WaitKey(3000)
+
 	for _, bar := range bars {
+		//findClef(img.Region(bar))
 		sls := findStaff(img.Region(bar))
 		notePositions := findNotes(img.Region(bar))
-		//	sls.draw(img.Region(bar))
 
-		findClef(img.Region(bar))
+		gocv.CvtColor(img, &img, gocv.ColorGrayToBGRA)
+		// for debugging
+		//sls.draw(img.Region(bar))
+		//notePositions.draw(img.Region(bar))
 
 		for _, notePosition := range notePositions {
 
@@ -51,6 +52,8 @@ func ReadSheet(filepath string) {
 
 		window.IMShow(img.Region(bar))
 		window.WaitKey(3000)
+
+		gocv.CvtColor(img, &img, gocv.ColorBGRAToGray)
 	}
 }
 
