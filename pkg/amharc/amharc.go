@@ -1,9 +1,11 @@
 package amharc
 
 import (
+	"errors"
 	"fmt"
 	"image"
 	"image/color"
+	"os"
 
 	"gocv.io/x/gocv"
 )
@@ -11,12 +13,14 @@ import (
 const ImageRows = 1100
 const ImageCols = 850
 
-func ReadSheet(filepath string) {
+func ReadSheet(filepath string) error {
+	if _, err := os.Stat(filepath); os.IsNotExist(err) {
+		return errors.New(fmt.Sprintf("File '%s' not found", filepath))
+	}
+
 	img := gocv.IMRead(filepath, gocv.IMReadColor)
 	defer img.Close()
 	gocv.Resize(img, &img, image.Point{ImageCols, ImageRows}, 0, 0, gocv.InterpolationArea)
-	//gocv.Blur(img, &img, image.Point{3, 3})
-	//gocv.GaussianBlur(img, &img, image.Point{3, 3}, 1, 1, gocv.BorderDefault)
 	gocv.CvtColor(img, &img, gocv.ColorBGRAToGray)
 
 	bars := extractBars(img)
@@ -36,8 +40,8 @@ func ReadSheet(filepath string) {
 
 		gocv.CvtColor(img, &img, gocv.ColorGrayToBGRA)
 		// for debugging
-		//sls.draw(img.Region(bar))
 		//notePositions.draw(img.Region(bar))
+		//sls.draw(img.Region(bar))
 
 		for _, notePosition := range notePositions {
 
@@ -48,13 +52,12 @@ func ReadSheet(filepath string) {
 				drawNote(img.Region(bar), notePosition, pitch)
 			}
 		}
-		fmt.Println()
-
 		window.IMShow(img.Region(bar))
 		window.WaitKey(3000)
 
 		gocv.CvtColor(img, &img, gocv.ColorBGRAToGray)
 	}
+	return nil
 }
 
 func drawNote(img gocv.Mat, notePosition circle, pitch string) {
