@@ -1,6 +1,7 @@
 package amharc
 
 import (
+	"errors"
 	"fmt"
 	"image"
 	"image/color"
@@ -37,7 +38,7 @@ func findStaff(bar gocv.Mat) staffLines {
 		}
 
 	}
-	fmt.Println("creating staffline...")
+	rects, _ = stripOutliar(rects, 5)
 	sls := createStaffLines(rects)
 	return sls
 }
@@ -95,10 +96,8 @@ func createStaffLines(rects []image.Rectangle) staffLines {
 
 	// create staff representations for lines
 	for i, rect := range rects {
-		fmt.Println("i", i, "rect.Min.Y", rect.Min.Y, "rect.Max.Y", rect.Max.Y, "notes[i]", notes[i])
 		// 18 is e5
 		sls = append(sls, staffLine{rect, notes[19-(i*2)]})
-		fmt.Println("Adding pitch", notes[19-(i*2)])
 	}
 
 	// create staff representations for clear line rects to represent the notes marked by the space between lines
@@ -106,31 +105,26 @@ func createStaffLines(rects []image.Rectangle) staffLines {
 		j := i + 1
 		// if this rect and the next don't overlap, represenet that space as a staffLine (Notes: FACE)
 		if rects[i].Intersect(rects[j]).Empty() {
-			fmt.Println("appending...", image.Rectangle{Min: rects[i].Min, Max: image.Point{rects[j].Max.X, rects[j].Min.Y}})
 			sls = append(sls, staffLine{image.Rectangle{Min: image.Point{rects[i].Min.X, rects[i].Max.Y},
 				Max: image.Point{rects[j].Max.X, rects[j].Min.Y}},
 				notes[18-(i*2)]})
-			fmt.Println("1Adding pitch", notes[18-(i*2)])
 		} else {
 			fmt.Println("Not appending. Intersection found between", rects[i], rects[j])
 		}
 	}
 
 	// create a ghost staff above and below the real staff
-	sls = createGhostLines(sls)
 
-	for _, sl := range sls {
-		sl.print()
-	}
+	sls = createGhostLines(sls)
+	sls.sort()
+	sls.print()
 	return sls
 }
 
 // create lines above and below
 func createGhostLines(sls staffLines) staffLines {
 	// sort ascending, sls[0] = 'f'
-	sort.Slice(sls, func(i, j int) bool {
-		return sls[i].rect.Min.Y < sls[j].rect.Min.Y
-	})
+	sls.sort()
 	if sls.isEmpty() {
 		// TODO: return nil, err
 		return nil
@@ -138,13 +132,12 @@ func createGhostLines(sls staffLines) staffLines {
 
 	bottomLine := sls[len(sls)-1] // has the highest Y-value. i.e. furthest down on the image
 	// go 8 notes down
-	notesDown := 8
+	notesDown := 9
 	for i := 0; i < notesDown; i++ {
 		r := image.Rectangle{
 			Min: image.Point{X: bottomLine.rect.Min.X, Y: (bottomLine.rect.Max.Y + (bottomLine.rect.Max.Y - sls[i].rect.Max.Y))},
 			Max: image.Point{X: bottomLine.rect.Max.X, Y: (bottomLine.rect.Max.Y + (bottomLine.rect.Max.Y - sls[i].rect.Min.Y))}}
 		sls = append(sls, staffLine{r, notes[10+i-notesDown]})
-		fmt.Println("Down: ", notes[10+i-notesDown])
 	}
 
 	// go 10 notes up
@@ -154,10 +147,16 @@ func createGhostLines(sls staffLines) staffLines {
 			Min: image.Point{X: sls[0].rect.Min.X, Y: (sls[0].rect.Min.Y - (sls[i].rect.Min.Y - sls[0].rect.Min.Y))},
 			Max: image.Point{X: sls[0].rect.Max.X, Y: (sls[0].rect.Max.Y - (sls[i].rect.Min.Y - sls[0].rect.Min.Y))}}
 		sls = append(sls, staffLine{r, notes[26+i]})
-		fmt.Println("Up: ", notes[26+i])
 	}
 
 	return sls
+}
+
+// sorts stafflines ascending
+func (sls staffLines) sort() {
+	sort.Slice(sls, func(i, j int) bool {
+		return sls[i].rect.Min.Y < sls[j].rect.Min.Y
+	})
 }
 
 func (sls staffLines) isEmpty() bool {
@@ -170,22 +169,37 @@ func (sls staffLines) draw(img gocv.Mat) {
 	}
 }
 
-// FIXME
-func stripOutliar(rects []image.Rectangle) []image.Rectangle {
-	// finds the biggest outliar of the rects based on their y-values
-	maxDistance := 0
-	badRect := -1
-	for i := 0; i < len(rects)-1; i++ {
-		diff := rects[i].Min.Y - rects[i+1].Min.Y
-		if diff > maxDistance {
-			maxDistance = diff
-			badRect = i // FIXME or it could be j!!
-		}
+func (sls staffLines) print() {
+	for _, sl := range sls {
+		sl.print()
 	}
-	fmt.Println("Stripping outliar...", rects[badRect], "len", len(rects))
-	rects = append(rects[:badRect], rects[badRect+1:]...)
-	fmt.Println("After strip", len(rects))
-	return rects
+}
+
+// Strip the biggest outliar(s) of the y-sorted rectangles based on their y-values, leaving only `num` closest rects
+func stripOutliar(rects []image.Rectangle, num int) ([]image.Rectangle, error) {
+
+	if len(rects) < num {
+		return nil, errors.New("We want a range larger than the number of available points")
+	}
+
+	p1 := 0
+	p2 := num - 1
+	diff := math.MaxInt
+	start := 0
+	end := num - 1
+
+	for p2 < len(rects) {
+		if rects[p2].Min.Y-rects[p1].Min.Y < diff {
+			diff = rects[p2].Min.Y - rects[p1].Min.Y
+			start = p1
+			end = p2
+		}
+		p1++
+		p2++
+	}
+
+	result := rects[start : end+1]
+	return result, nil
 }
 
 // a region in the bar associated with a particulat pitch
@@ -217,9 +231,16 @@ func (sls staffLines) contains(notePosition circle) string {
 		if notePosition.center.In(sl.rect) {
 			return sl.pitch
 		}
+
+		/*
+			if sl.rect.Min.X <= notePosition.center.X && notePosition.center.X <= sl.rect.Max.X &&
+				sl.rect.Min.Y <= notePosition.center.Y && notePosition.center.Y <= sl.rect.Max.Y {
+				return sl.pitch
+			}
+		*/
+
 	}
 	return "x"
-
 }
 
 func createRectangle(line1, line2 line) image.Rectangle {
@@ -229,8 +250,10 @@ func createRectangle(line1, line2 line) image.Rectangle {
 		xLen = line2.pt2.X
 	}
 	// add padding
-	minPt := image.Point{line1.pt1.X, line1.pt1.Y - 1}
-	maxPt := image.Point{xLen, line2.pt2.Y + 1}
+	//minPt := image.Point{line1.pt1.X, line1.pt1.Y - 1}
+	minPt := image.Point{0, line1.pt1.Y - 1}
+	//maxPt := image.Point{xLen, line2.pt2.Y + 1}
+	maxPt := image.Point{1000, line2.pt2.Y + 1}
 	return image.Rectangle{minPt, maxPt}
 }
 
