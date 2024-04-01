@@ -12,6 +12,10 @@ import (
 	"gocv.io/x/gocv"
 )
 
+// Given a bar, this will create stafflines; a representational mapping of a space on the staff to a pitch
+// EGBDF lines are found using Hough lines. A rectangle is constructed around these lines to denote the aforementioned pitches.
+// The space in between the found rectangles is used to find the FACE lines.
+// These set of rectangles are mapped above and below as 'Ghost lines' to represent even lower and higher pitches
 func findStaff(bar gocv.Mat) staffLines {
 
 	img := bar.Clone()
@@ -21,18 +25,14 @@ func findStaff(bar gocv.Mat) staffLines {
 	defer matLines.Close()
 	gocv.Canny(img, &img, 50, 200)
 	gocv.HoughLinesPWithParams(img, &matLines, 1, math.Pi/180, 80, 200, 10)
-
+	// These lines should contain EGBDF
 	lines := sortMatLines(matLines)
 	fmt.Println("Number of lines found", len(lines))
-	//lines.prettyPrint()
-	if len(lines)%2 == 1 {
-		fmt.Println("We've found an odd number of lines")
-	}
 
 	var rects []image.Rectangle
 	for i := 0; i < len(lines)-1; i++ {
 		if (lines[i+1].pt1.Y - lines[i].pt1.Y) <= 2 {
-			// group found
+			// This group of lines, as a rectangle, represents a single pitch
 			rect := createRectangle(lines[i], lines[i+1])
 			rects = append(rects, rect)
 		}
@@ -42,6 +42,8 @@ func findStaff(bar gocv.Mat) staffLines {
 	sls := createStaffLines(rects)
 	return sls
 }
+
+const UndefinedPitch = "x"
 
 var notes = map[int]string{
 	0:  "a3",
@@ -90,17 +92,14 @@ var notes = map[int]string{
 
 func createStaffLines(rects []image.Rectangle) staffLines {
 	var sls staffLines
-	if len(rects)%5 == 0 {
-		// TODO
-	}
 
-	// create staff representations for lines
+	// create staff representations for lines EGBDF
 	for i, rect := range rects {
-		// 18 is e5
+		// 19 is e5
 		sls = append(sls, staffLine{rect, notes[19-(i*2)]})
 	}
 
-	// create staff representations for clear line rects to represent the notes marked by the space between lines
+	// create staff representations for clear line rects to represent the notes marked by the space between lines FACE
 	for i := 0; i < len(rects)-1; i++ {
 		j := i + 1
 		// if this rect and the next don't overlap, represenet that space as a staffLine (Notes: FACE)
@@ -113,15 +112,13 @@ func createStaffLines(rects []image.Rectangle) staffLines {
 		}
 	}
 
-	// create a ghost staff above and below the real staff
-
 	sls = createGhostLines(sls)
 	sls.sort()
 	sls.print()
 	return sls
 }
 
-// create lines above and below
+// create a ghost staff above and below the "main" staff to represent even lower and higher pitches
 func createGhostLines(sls staffLines) staffLines {
 	// sort ascending, sls[0] = 'f'
 	sls.sort()
@@ -152,7 +149,7 @@ func createGhostLines(sls staffLines) staffLines {
 	return sls
 }
 
-// sorts stafflines ascending
+// sorts stafflines ascending, i.e. moving down the sheet, e.g. g7 -> f7 -> ... -> e4
 func (sls staffLines) sort() {
 	sort.Slice(sls, func(i, j int) bool {
 		return sls[i].rect.Min.Y < sls[j].rect.Min.Y
@@ -231,16 +228,8 @@ func (sls staffLines) contains(notePosition circle) string {
 		if notePosition.center.In(sl.rect) {
 			return sl.pitch
 		}
-
-		/*
-			if sl.rect.Min.X <= notePosition.center.X && notePosition.center.X <= sl.rect.Max.X &&
-				sl.rect.Min.Y <= notePosition.center.Y && notePosition.center.Y <= sl.rect.Max.Y {
-				return sl.pitch
-			}
-		*/
-
 	}
-	return "x"
+	return UndefinedPitch
 }
 
 func createRectangle(line1, line2 line) image.Rectangle {
@@ -251,8 +240,8 @@ func createRectangle(line1, line2 line) image.Rectangle {
 	}
 	// add padding
 	//minPt := image.Point{line1.pt1.X, line1.pt1.Y - 1}
-	minPt := image.Point{0, line1.pt1.Y - 1}
 	//maxPt := image.Point{xLen, line2.pt2.Y + 1}
+	minPt := image.Point{0, line1.pt1.Y - 1}
 	maxPt := image.Point{1000, line2.pt2.Y + 1}
 	return image.Rectangle{minPt, maxPt}
 }
