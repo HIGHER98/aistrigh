@@ -23,8 +23,12 @@ func ReadSheet(filepath string) error {
 	gocv.Resize(img, &img, image.Point{ImageCols, ImageRows}, 0, 0, gocv.InterpolationArea)
 	gocv.CvtColor(img, &img, gocv.ColorBGRAToGray)
 
-	bars := extractBars(img)
+	bars, err := findClefs(img)
+	if err != nil {
+		return err
+	}
 
+	gocv.CvtColor(img, &img, gocv.ColorGrayToBGRA)
 	// show our hard work....
 	window := gocv.NewWindow(filepath)
 	defer window.Close()
@@ -33,8 +37,9 @@ func ReadSheet(filepath string) error {
 	window.IMShow(img)
 	window.WaitKey(3000)
 
+	return nil
+	//bars := extractBars(img)
 	for _, bar := range bars {
-		//findClef(img.Region(bar))
 		sls := findStaff(img.Region(bar))
 		notePositions := findNotes(img.Region(bar))
 
@@ -48,7 +53,7 @@ func ReadSheet(filepath string) error {
 			pitch := sls.contains(notePosition)
 
 			fmt.Printf(" %s ", pitch)
-			if pitch != "x" {
+			if pitch != UndefinedPitch {
 				drawNote(img.Region(bar), notePosition, pitch)
 			}
 		}
@@ -65,5 +70,3 @@ func drawNote(img gocv.Mat, notePosition circle, pitch string) {
 	text := fmt.Sprintf("%s", pitch)
 	gocv.PutText(&img, text, notePosition.center, gocv.FontHersheyPlain, 1, color.RGBA{200, 10, 100, 0}, 1)
 }
-
-// TODO: Backproject histogram
