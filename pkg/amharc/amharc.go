@@ -18,18 +18,11 @@ func ReadSheet(filepath string) error {
 		return errors.New(fmt.Sprintf("File '%s' not found", filepath))
 	}
 
-	img := gocv.IMRead(filepath, gocv.IMReadColor)
+	img := gocv.IMRead(filepath, gocv.IMReadGrayScale)
 	defer img.Close()
 	gocv.Resize(img, &img, image.Point{ImageCols, ImageRows}, 0, 0, gocv.InterpolationArea)
-	gocv.CvtColor(img, &img, gocv.ColorBGRAToGray)
 
-	bars, err := findClefs(img)
-	if err != nil {
-		return err
-	}
-
-	gocv.CvtColor(img, &img, gocv.ColorGrayToBGRA)
-	// show our hard work....
+	// show our hard work...
 	window := gocv.NewWindow(filepath)
 	defer window.Close()
 	window.MoveWindow(100, 100)
@@ -37,13 +30,16 @@ func ReadSheet(filepath string) error {
 	window.IMShow(img)
 	window.WaitKey(3000)
 
-	return nil
-	//bars := extractBars(img)
+	bars, err := ExtractBars(img)
+	if err != nil {
+		return err
+	}
 	for _, bar := range bars {
 		sls := findStaff(img.Region(bar))
 		notePositions := findNotes(img.Region(bar))
 
 		gocv.CvtColor(img, &img, gocv.ColorGrayToBGRA)
+
 		// for debugging
 		//notePositions.draw(img.Region(bar))
 		//sls.draw(img.Region(bar))

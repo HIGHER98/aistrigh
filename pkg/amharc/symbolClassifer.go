@@ -44,8 +44,6 @@ func matchTemplateMultiScale(img gocv.Mat, templ gocv.Mat, end, step float64) ([
 		return nil, errors.New("step should be between 0 and 1")
 	}
 
-	//	gocv.Canny(templ, &templ, 50, 200)
-
 	clone := img.Clone()
 	defer clone.Close()
 
@@ -58,11 +56,6 @@ func matchTemplateMultiScale(img gocv.Mat, templ gocv.Mat, end, step float64) ([
 	edged := gocv.NewMat()
 	defer edged.Close()
 
-	window := gocv.NewWindow("matchTemplateMultiScale")
-	defer window.Close()
-	window.MoveWindow(100, 100)
-	window.ResizeWindow(1200, 1000)
-
 	var clefs []image.Rectangle
 
 	for scale := 1.0; scale >= end; scale = scale - step {
@@ -72,8 +65,6 @@ func matchTemplateMultiScale(img gocv.Mat, templ gocv.Mat, end, step float64) ([
 			// our image must always be bigger than our template
 			break
 		}
-
-		//		gocv.Canny(clone, &edged, 50, 200)
 
 		gocv.MatchTemplate(clone, templ, &res, gocv.TmCcorrNormed, mask)
 
@@ -103,9 +94,6 @@ func matchTemplateMultiScale(img gocv.Mat, templ gocv.Mat, end, step float64) ([
 		fmt.Println(rects)
 		fmt.Println(indices)
 		for _, index := range indices {
-			// add this rectangle to a data structure containing this rectangle and the scale it was recorded at
-			//[ scale => [rects[index], rects[index+1], ...] ]
-
 			// add this rectangle at the original scale to return
 			clefs = append(clefs, image.Rectangle{
 				Min: image.Point{int(float64(rects[index].Min.X) / scale), int(float64(rects[index].Min.Y) / scale)},
@@ -113,8 +101,6 @@ func matchTemplateMultiScale(img gocv.Mat, templ gocv.Mat, end, step float64) ([
 			})
 		}
 
-		window.IMShow(clone)
-		window.WaitKey(3000)
 		// on first appearance of any clefs, we can return since the clefs should all be the same size
 		return clefs, nil
 	}
