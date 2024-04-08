@@ -35,7 +35,7 @@ func ReadSheet(filepath string) error {
 		return err
 	}
 	for _, bar := range bars {
-		sls := findStaff(img.Region(bar))
+		sls := FindStaff(img.Region(bar))
 		notePositions := findNotes(img.Region(bar))
 
 		gocv.CvtColor(img, &img, gocv.ColorGrayToBGRA)
