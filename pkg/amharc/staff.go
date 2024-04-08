@@ -15,7 +15,7 @@ import (
 // Given a bar, this will create stafflines; a representational mapping of a space on the staff to a pitch
 // EGBDF lines are found using Hough lines. A rectangle is constructed around these lines to denote the aforementioned pitches.
 // The space in between the found rectangles is used to find the FACE lines.
-// These set of rectangles are mapped above and below as 'Ghost lines' to represent even lower and higher pitches
+// These set of rectangles are mapped above and below as 'ledger lines' to represent even lower and higher pitches
 func FindStaff(bar gocv.Mat) staffLines {
 
 	img := bar.Clone()
@@ -93,20 +93,11 @@ var notes = map[int]string{
 func createStaffLines(rects []image.Rectangle) staffLines {
 	var sls staffLines
 
-	// how much space we are typically allocating for a pitch on a line/on space between lines
-	var avgLineAlloc int
-	var avgSpaceAlloc int
-
-	var lineAllocSum int
-	var spaceAllocSum int
-
 	// create staff representations for lines EGBDF
 	for i, rect := range rects {
 		// 19 is e4
 		sls = append(sls, staffLine{rect, notes[19-(i*2)]})
-		lineAllocSum += rect.Max.Y - rect.Min.Y
 	}
-	avgLineAlloc = lineAllocSum / 5
 
 	// create staff representations for clear line rects to represent the notes marked by the space between lines FACE
 	for i := 0; i < len(rects)-1; i++ {
@@ -116,40 +107,29 @@ func createStaffLines(rects []image.Rectangle) staffLines {
 			rect := image.Rectangle{Min: image.Point{rects[i].Min.X, rects[i].Max.Y},
 				Max: image.Point{rects[j].Max.X, rects[j].Min.Y}}
 			sls = append(sls, staffLine{rect, notes[18-(i*2)]})
-			spaceAllocSum += rect.Max.Y - rect.Min.Y
 		} else {
 			fmt.Println("Not appending. Intersection found between", rects[i], rects[j])
 		}
 	}
-	avgSpaceAlloc = spaceAllocSum / 4
 
-	fmt.Println("Average line alloc:", avgLineAlloc, "Average space alloc:", avgSpaceAlloc)
-
-	sls = createGhostLines(sls, avgLineAlloc, avgSpaceAlloc)
+	sls, _ = createLedgerLines(sls)
 	sls.sort()
 	sls.print()
 	return sls
 }
 
-// TODO: Rename createLedgerLines
-// create a ghost staff above and below the "main" staff to represent even lower and higher pitches
-func createGhostLines(sls staffLines, lineAlloc, spaceAlloc int) staffLines {
-	// sort ascending, sls[0] = 'f4'
-	// sls[len(sls)-1] = 'e3'
+// create ledger lines above and below the "main" staff to represent even lower and higher pitches
+func createLedgerLines(sls staffLines) (staffLines, error) {
 	sls.sort()
 	if sls.isEmpty() {
-		// TODO: return nil, err
-		return nil
+		return nil, errors.New("No stafflines were given")
 	}
 
 	var r image.Rectangle
-
-	fmt.Println("lineAlloc", lineAlloc, "spaceAlloc", spaceAlloc)
-
 	topLine := sls[0]             // f4
 	bottomLine := sls[len(sls)-1] // e3
 
-	l := len(sls)
+	l := len(sls) // should be len('EFGABCDEF') = 9
 
 	// going down
 	for i := l - 2; i >= 0; i-- {
@@ -204,85 +184,7 @@ func createGhostLines(sls staffLines, lineAlloc, spaceAlloc int) staffLines {
 
 		sls = append(sls, staffLine{r, notes[19+i]})
 	}
-
-	/* This works with the averages
-	// d3, b3, g3, e2, ...
-	for i := 0; i < 8; i += 2 {
-		r = image.Rectangle{
-			Min: image.Point{X: sls[len(sls)-1].rect.Min.X, Y: sls[len(sls)-1].rect.Max.Y},
-			Max: image.Point{X: sls[len(sls)-1].rect.Max.X, Y: sls[len(sls)-1].rect.Max.Y + spaceAlloc},
-		}
-
-		sls = append(sls, staffLine{r, notes[10-i]})
-
-		r = image.Rectangle{
-			Min: image.Point{X: sls[len(sls)-1].rect.Min.X, Y: sls[len(sls)-1].rect.Max.Y},
-			Max: image.Point{X: sls[len(sls)-1].rect.Max.X, Y: sls[len(sls)-1].rect.Max.Y + lineAlloc},
-		}
-
-		sls = append(sls, staffLine{r, notes[10-i-1]})
-	}
-	*/
-	/*
-		// c3, a3, f2, d2, ...
-		for i := 1; i < 6; i += 2 {
-			r = image.Rectangle{
-				Min: image.Point{X: sls[len(sls)-1].rect.Min.X, Y: bottomLine.Max.Y + spaceAlloc + lineAlloc*i},
-				Max: image.Point{X: sls[len(sls)-1].rect.Max.X, Y: bottomLine.Max.Y + spaceAlloc + lineAlloc*i + lineAlloc},
-			}
-
-			sls = append(sls, staffLine{r, notes[10-i]})
-		}
-	*/
-
-	return sls
-	///////
-
-	/*
-		for i := 0; i <= 7; i++ {
-			if i%2 == 1 {
-				r = image.Rectangle{
-					Min: image.Point{X: sls[len(sls)-1].rect.Min.X, Y: sls[len(sls)-1].rect.Max.Y},
-					Max: image.Point{X: sls[len(sls)-1].rect.Max.X, Y: sls[len(sls)-1].rect.Max.Y + spaceAlloc},
-				}
-			} else {
-				r = image.Rectangle{
-					Min: image.Point{X: sls[len(sls)-1].rect.Min.X, Y: sls[len(sls)-1].rect.Max.Y},
-					Max: image.Point{X: sls[len(sls)-1].rect.Max.X, Y: sls[len(sls)-1].rect.Max.Y + lineAlloc},
-				}
-			}
-			sls = append(sls, staffLine{r, notes[10-i]})
-		}
-
-		for i := 1; i < 9; i++ {
-			r = image.Rectangle{
-				Min: image.Point{X: sls[0].rect.Min.X, Y: sls[0].rect.Min.Y - space},
-				Max: image.Point{X: sls[0].rect.Max.X, Y: sls[0].rect.Min.Y},
-			}
-
-			r = image.Rectangle{
-				Min: image.Point{X: sls[0].rect.Min.X, Y: sls[0].rect.Min.Y - space - line},
-				Max: image.Point{X: sls[0].rect.Max.X, Y: sls[0].rect.Min.Y - space},
-			}
-
-			r = image.Rectangle{
-				Min: image.Point{X: sls[0].rect.Min.X, Y: sls[0].rect.Min.Y - space - line - space},
-				Max: image.Point{X: sls[0].rect.Max.X, Y: sls[0].rect.Min.Y - space - line},
-			}
-
-			sls = append(sls, staffLine{r, notes[26+i]})
-		}
-
-		for i := 1; i < 9; i++ {
-			r = image.Rectangle{
-				Min: image.Point{X: sls[0].rect.Min.X, Y: (sls[0].rect.Min.Y - (sls[i].rect.Min.Y - sls[0].rect.Min.Y))},
-				Max: image.Point{X: sls[0].rect.Max.X, Y: (sls[0].rect.Max.Y - (sls[i].rect.Min.Y - sls[0].rect.Min.Y))},
-			}
-			sls = append(sls, staffLine{r, notes[26+i]})
-		}
-
-	*/
-	return sls
+	return sls, nil
 }
 
 // sorts stafflines ascending, i.e. moving down the sheet, e.g. g7 -> f7 -> ... -> e4
